@@ -1,0 +1,68 @@
+Plumbing Service Voice Agent — Knowledge Base
+
+
+ 1. Company Overview
+•	We are a licensed and insured plumbing service available 24/7.
+•	We handle residential and commercial plumbing needs.
+•	Our average response time: 30–60 minutes for emergencies.
+•	All our plumbers are certified and carry ID badges.
+
+ 2. Common Services
+Category
+Services
+General Plumbing
+Leak detection, faucet repair, pipe replacement, fixture installation
+Emergency Plumbing
+Burst pipes, flooding, backed-up drains, water heater leaks
+Drain Services
+Clogged sinks, shower drains, sewer line cleaning
+Water Heater Services
+Installation, repair, tankless water heater setup
+Bathroom & Kitchen Plumbing
+Toilet installation, garbage disposal, dishwasher hookups
+Pipe Services
+Copper re-piping, PEX piping, leak repair, pressure testing
+
+ 3. Scheduling & Appointments
+•	Appointments can be booked 7 days a week.
+•	Emergency calls get priority same-day slots.
+•	Regular services are scheduled in 2–4 hour windows.
+•	Technicians call 30 minutes before arrival.
+•	Customers can reschedule up to 2 hours before the appointment time.
+
+4. Pricing & Estimates
+•	Service call fee: $49 (waived if you proceed with repair)
+•	Hourly rate: $90–$120/hr (varies by job complexity)
+•	Emergency after-hours fee: +$75
+•	Free estimates for large jobs (water heater, repiping)
+•	Warranty: 90 days on labor, 1 year on parts
+
+ 5. Payment Methods
+•	We accept cash, credit/debit cards, checks, and digital payments (Zelle, Venmo, etc.)
+•	Payment due upon job completion
+•	Financing available for large jobs through [partner name, if any]
+
+6. Service Areas
+•	Primary service area: [City/Region name]
+•	We cover up to 25 miles from our main office.
+•	Extra travel fee may apply beyond service radius.
+
+ 7. Emergency Protocol
+•	For burst pipes or flooding, shut off the main water valve.
+•	Call [Emergency number or hotline] immediately.
+•	A plumber will be dispatched within 30 minutes.
+•	The voice agent can collect address, phone, and nature of emergency.
+
+ 8. Frequently Asked Questions
+Q1: Do you charge extra for weekends or holidays?A1: Yes, an additional $50 emergency fee applies.
+Q2: Can I get a quote over the phone?A2: For small repairs, yes. For complex jobs, a plumber will provide an on-site quote.
+Q3: Are your plumbers background-checked?A3: Yes, all our plumbers are background-checked and fully certified.
+Q4: Do you install water filters or softeners?A4: Yes, we install and service most major brands.
+Q5: What if I’m not home during the appointment?A5: Please notify us in advance. We can reschedule or wait up to 15 minutes after arrival.
+
+9. Internal Notes (for AI logic)
+•	If user says “urgent,” “leak,” “flood,” or “burst,” → classify as emergency.
+•	If user says “quote,” “estimate,” or “price,” → provide pricing info or offer to schedule inspection.
+•	If user says “schedule” or “book,” → trigger booking flow.
+•	Confirm address, contact number, and preferred time before finalizing.
+•	Always confirm the problem type (leak, blockage, install, etc.) to assign the right technician.

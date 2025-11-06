@@ -5,8 +5,8 @@
 
 // Dynamic imports for server-side only
 const getPdfParse = async () => {
-  const pdf = await import('pdf-parse');
-  return (pdf as any).default || pdf;
+  const { PDFParse } = await import('pdf-parse');
+  return PDFParse;
 };
 
 const getMammoth = async () => {
@@ -31,9 +31,10 @@ export async function parseTxt(buffer: Buffer): Promise<string> {
  */
 export async function parsePdf(buffer: Buffer): Promise<string> {
   try {
-    const pdf = await getPdfParse();
-    const data = await pdf(buffer);
-    return data.text;
+    const PDFParseClass = await getPdfParse();
+    const parser = new PDFParseClass({ data: buffer });
+    const result = await parser.getText();
+    return result.text;
   } catch (error) {
     console.error('Error parsing PDF:', error);
     throw new Error('Failed to parse PDF file');

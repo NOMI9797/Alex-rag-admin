@@ -28,7 +28,7 @@ const navMenu = [
         link: "/",
       },
       {
-        title: "Knowledge Base",
+        title: "Agent",
         icon: Database,
         link: "/knowledge-base",
       },

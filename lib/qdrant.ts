@@ -221,6 +221,154 @@ export class QdrantManager {
       return false;
     }
   }
+
+  /**
+   * Store configuration data in Qdrant using scroll to find and update
+   */
+  async uploadConfig(configKey: string, configValue: string): Promise<boolean> {
+    try {
+      // First, try to delete existing config if it exists
+      await this.deleteConfig(configKey);
+
+      // Create a zero vector for config (not used for search)
+      const zeroVector = new Array(1536).fill(0);
+      
+      // Use a UUID for the point ID to avoid any string ID issues
+      const pointId = crypto.randomUUID();
+      const point = {
+        id: pointId,
+        vector: zeroVector,
+        payload: {
+          type: 'config',
+          config_key: configKey,
+          config_value: configValue,
+          text: '', // Empty text to maintain schema consistency
+        },
+      };
+
+      await this.client.upsert(this.collectionName, {
+        wait: true,
+        points: [point],
+      });
+
+      console.log(`Successfully stored config: ${configKey}`);
+      return true;
+    } catch (error) {
+      console.error(`Error storing config '${configKey}':`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Retrieve configuration data from Qdrant using scroll
+   */
+  async getConfig(configKey: string): Promise<string | null> {
+    try {
+      // Scroll through points to find config (scroll doesn't support filters well in REST API)
+      let offset: string | number | undefined = undefined;
+      
+      while (true) {
+        const response = await this.client.scroll(this.collectionName, {
+          limit: 100,
+          offset,
+          with_payload: true,
+          with_vector: false,
+        });
+
+        if (!response.points || response.points.length === 0) {
+          break;
+        }
+
+        // Look for our config in this batch
+        for (const point of response.points) {
+          const payload = point.payload as any;
+          if (payload?.type === 'config' && payload?.config_key === configKey) {
+            const configValue = payload?.config_value;
+            console.log(`Retrieved config: ${configKey}`);
+            return configValue || null;
+          }
+        }
+
+        if (!response.next_page_offset) {
+          break;
+        }
+        
+        // Type guard for offset
+        const nextOffset = response.next_page_offset;
+        if (typeof nextOffset === 'string' || typeof nextOffset === 'number') {
+          offset = nextOffset;
+        } else {
+          break;
+        }
+      }
+
+      console.log(`Config not found: ${configKey}`);
+      return null;
+    } catch (error) {
+      console.error(`Error retrieving config '${configKey}':`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Delete configuration data from Qdrant using scroll to find then delete
+   */
+  async deleteConfig(configKey: string): Promise<boolean> {
+    try {
+      const pointIdsToDelete: (string | number)[] = [];
+      let offset: string | number | undefined = undefined;
+      
+      // Scroll through all points to find matching configs
+      while (true) {
+        const response = await this.client.scroll(this.collectionName, {
+          limit: 100,
+          offset,
+          with_payload: true,
+          with_vector: false,
+        });
+
+        if (!response.points || response.points.length === 0) {
+          break;
+        }
+
+        // Find config points matching our key
+        for (const point of response.points) {
+          const payload = point.payload as any;
+          if (payload?.type === 'config' && payload?.config_key === configKey) {
+            pointIdsToDelete.push(point.id);
+          }
+        }
+
+        if (!response.next_page_offset) {
+          break;
+        }
+        
+        // Type guard for offset
+        const nextOffset = response.next_page_offset;
+        if (typeof nextOffset === 'string' || typeof nextOffset === 'number') {
+          offset = nextOffset;
+        } else {
+          break;
+        }
+      }
+
+      // Delete found config points
+      if (pointIdsToDelete.length > 0) {
+        await this.client.delete(this.collectionName, {
+          wait: true,
+          points: pointIdsToDelete,
+        });
+        console.log(`Successfully deleted ${pointIdsToDelete.length} config point(s): ${configKey}`);
+      } else {
+        console.log(`No config found to delete: ${configKey}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`Error deleting config '${configKey}':`, error);
+      throw error; // Re-throw to let uploadConfig know there was an error
+    }
+  }
 }
 
 /**

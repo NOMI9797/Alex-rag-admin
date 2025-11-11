@@ -1,0 +1,20 @@
+{
+"company": {
+"name": "Hydra Appliance Repair",
+"location": "Portland, Oregon",
+"address": "10331 SW Eastridge St, Portland, OR",
+"email": "service@hydraappliancerepair.com",
+"phone": "503-270-3300",
+"payment_methods": ["card", "cash", "check"],
+"brands_serviced": [
+"Samsung", "LG", "Whirlpool", "Maytag", "GE",
+"KitchenAid", "Bosch", "Miele", "Sub-Zero", "Wolf"
+],
+"warranty": "90 days on labor",
+"working_hours": {
+"monday_friday": "8 AM – 4 PM",
+"saturday": "8 AM – 12 PM",
+"sunday": "Closed"
+}
+}
+}

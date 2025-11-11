@@ -8,6 +8,7 @@ A modern web interface for managing your RAG agent's knowledge base with Qdrant 
 - **Vector Management**: Automatically converts text to embeddings and stores in Qdrant
 - **Content Viewer**: Browse and search through your knowledge base content
 - **Statistics Dashboard**: View collection stats and vector counts
+- **Agent Instructions**: Configure custom agent behavior and instructions
 - **Delete Functionality**: Clear entire knowledge base with confirmation
 
 ## Prerequisites
@@ -52,27 +53,45 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Usage
 
-### Uploading Knowledge Base
+### Agent Page
 
-1. Click or drag-and-drop a file onto the upload zone
-2. Supported formats: `.txt`, `.pdf`, `.docx`, `.md`
-3. The file will be automatically:
+The **Agent** page is your central hub for configuring both agent behavior and knowledge base content.
+
+#### Managing Agent Instructions
+
+1. Navigate to **Agent** page (sidebar)
+2. In the **Agent Instructions** section:
+   - Edit instructions in the textarea
+   - See real-time character count
+   - Click **Save Instructions** to store in Qdrant
+   - Click **Discard Changes** to revert unsaved edits
+   - Click **Reset to Default** to restore original instructions
+3. Instructions are fetched per call for multi-tenant support
+4. New instructions take effect immediately for new calls
+
+**Note**: The agent will use default instructions as fallback if none are configured.
+
+#### Uploading Knowledge Base
+
+1. In the **Knowledge Base** section:
+   - Click or drag-and-drop a file onto the upload zone
+   - Supported formats: `.txt`, `.pdf`, `.docx`, `.md`
+2. The file will be automatically:
    - Parsed and cleaned
    - Split into paragraphs
    - Converted to embeddings using OpenAI
    - Uploaded to Qdrant
 
-### Viewing Content
+#### Viewing Content
 
-- Browse all paragraphs in your knowledge base
+- Browse all uploaded paragraphs in the **Uploaded Content** card
 - Use the search box to filter content
 - View metadata (filename, paragraph index)
 
-### Managing Knowledge Base
+#### Managing Knowledge Base
 
-- **Stats Card**: Shows vector count, collection name, and metrics
-- **Delete**: Permanently remove all vectors (requires confirmation)
-- **Refresh**: Reload stats and content after changes
+- **Clear All**: Permanently remove all knowledge base content (in section header)
+- Content updates are reflected immediately
 
 ## Deployment
 
@@ -104,33 +123,40 @@ docker run -p 3000:3000 \
 - `GET /api/stats` - Get collection statistics
 - `GET /api/view` - Retrieve all knowledge base content
 - `DELETE /api/delete` - Delete entire knowledge base
+- `GET /api/instructions` - Retrieve agent instructions
+- `POST /api/instructions` - Save agent instructions
+- `DELETE /api/instructions` - Reset instructions to default
 
 ## Architecture
 
 ```
-┌─────────────────┐
-│   Next.js UI    │
-│   (Frontend)    │
-└────────┬────────┘
-         │
-         ├── Upload Files
-         ├── View Content
-         ├── Delete KB
-         │
-         ▼
-┌─────────────────┐
-│  Qdrant Cloud   │
-│ (Vector Store)  │
-└────────┬────────┘
-         │
-         ├── Store Vectors
-         ├── Search Queries
-         │
-         ▼
-┌─────────────────┐
-│  Python Agent   │
-│  (LiveKit)      │
-└─────────────────┘
+┌─────────────────────────┐
+│     Next.js Admin UI    │
+│       (Frontend)        │
+└───────────┬─────────────┘
+            │
+            ├── Manage Instructions
+            ├── Upload Knowledge Base
+            ├── View Content
+            ├── Clear All
+            │
+            ▼
+┌─────────────────────────┐
+│     Qdrant Cloud        │
+│   (Vector Database)     │
+│                         │
+│  ├── Knowledge Vectors  │
+│  └── Agent Config       │
+└───────────┬─────────────┘
+            │
+            ├── Vector Search
+            ├── Config Retrieval
+            │
+            ▼
+┌─────────────────────────┐
+│    Python Agent         │
+│  (LiveKit + RAG)        │
+└─────────────────────────┘
 ```
 
 ## Tech Stack
@@ -154,10 +180,11 @@ Make sure the `QDRANT_COLLECTION_NAME` matches between the UI and Python agent.
 - Ensure Qdrant credentials are correct
 - Verify file format is supported
 
-### Agent not using new knowledge
+### Agent not using new instructions or knowledge
 
-- Restart the Python agent after uploading new content
-- The agent loads from Qdrant on startup
+- Restart the Python agent after uploading new content or changing instructions
+- Instructions and knowledge base are loaded from Qdrant at the start of each call
+- Check that both admin UI and agent use the same `QDRANT_COLLECTION_NAME`
 
 ## Development
 

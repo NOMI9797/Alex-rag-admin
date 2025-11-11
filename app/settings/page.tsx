@@ -30,7 +30,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                This page will allow you to configure agent settings, API keys, and other preferences.
+                This page will allow you to configure additional agent settings, API keys, and other preferences.
               </p>
             </CardContent>
           </Card>
@@ -39,4 +39,3 @@ export default function SettingsPage() {
     </SidebarInset>
   );
 }
-

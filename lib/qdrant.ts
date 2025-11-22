@@ -77,24 +77,58 @@ export class QdrantManager {
   }
 
   /**
-   * Delete all vectors from collection
+   * Delete all knowledge base vectors from collection (preserve config items like instructions)
    */
   async deleteAll(): Promise<boolean> {
     try {
-      // Delete collection
-      await this.client.deleteCollection(this.collectionName);
-      
-      // Recreate empty collection
-      await this.client.createCollection(this.collectionName, {
-        vectors: {
-          size: 1536,
-          distance: 'Cosine',
-        },
-      });
+      const pointsToDelete: string[] = [];
+      let offset: string | number | undefined = undefined;
+
+      // Scroll through all points and collect IDs of non-config points
+      while (true) {
+        const response = await this.client.scroll(this.collectionName, {
+          limit: 100,
+          offset,
+          with_payload: true,
+          with_vector: false,
+        });
+
+        if (!response.points || response.points.length === 0) {
+          break;
+        }
+
+        for (const point of response.points) {
+          const payload = point.payload as any;
+          // Only delete if it's NOT a config item (config items have type: 'config')
+          if (payload?.type !== 'config') {
+            pointsToDelete.push(point.id as string);
+          }
+        }
+
+        if (!response.next_page_offset) {
+          break;
+        }
+
+        // Type guard for offset
+        const nextOffset = response.next_page_offset;
+        if (typeof nextOffset === 'string' || typeof nextOffset === 'number') {
+          offset = nextOffset;
+        } else {
+          break;
+        }
+      }
+
+      // Delete all non-config points in batches
+      if (pointsToDelete.length > 0) {
+        // Qdrant REST API delete expects points in the body
+        await this.client.delete(this.collectionName, {
+          points: pointsToDelete,
+        });
+      }
 
       return true;
     } catch (error) {
-      console.error('Error deleting collection:', error);
+      console.error('Error deleting knowledge base vectors:', error);
       return false;
     }
   }

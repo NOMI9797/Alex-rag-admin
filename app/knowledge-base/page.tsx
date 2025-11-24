@@ -3,14 +3,11 @@
 import { useState, useEffect } from 'react';
 import { Header } from "@/components/layout/header";
 import { SidebarInset } from "@/components/ui/sidebar";
-import KnowledgeBaseUpload from '@/components/KnowledgeBaseUpload';
-import KnowledgeBaseViewer from '@/components/KnowledgeBaseViewer';
-import DeleteConfirmModal from '@/components/DeleteConfirmModal';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, RotateCcw, Save, Loader2, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, RotateCcw, Save, Loader2 } from "lucide-react";
 
 // Default fallback instructions
 const DEFAULT_INSTRUCTIONS = `You are a knowledgeable voice assistant that provides information based on your knowledge base. You are helpful, accurate, and professional.
@@ -46,11 +43,7 @@ interface Message {
 }
 
 export default function KnowledgeBasePage() {
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteMessage, setDeleteMessage] = useState<Message | null>(null);
-  
-  // Instructions state
+  // Instructions and Knowledge Base state (combined)
   const [instructions, setInstructions] = useState('');
   const [originalInstructions, setOriginalInstructions] = useState('');
   const [loadingInstructions, setLoadingInstructions] = useState(true);
@@ -169,41 +162,6 @@ export default function KnowledgeBasePage() {
     setInstructionsMessage(null);
   };
 
-  const handleUploadSuccess = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
-
-  const handleDelete = async () => {
-    try {
-      const response = await fetch('/api/delete', {
-        method: 'DELETE',
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setDeleteMessage({
-          type: 'success',
-          text: 'Knowledge base deleted successfully',
-        });
-        setRefreshTrigger(prev => prev + 1);
-      } else {
-        setDeleteMessage({
-          type: 'error',
-          text: data.error || 'Failed to delete knowledge base',
-        });
-      }
-    } catch (error) {
-      setDeleteMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Failed to delete knowledge base',
-      });
-    } finally {
-      setShowDeleteModal(false);
-      setTimeout(() => setDeleteMessage(null), 5000);
-    }
-  };
-
   return (
     <SidebarInset>
       <Header />
@@ -214,22 +172,10 @@ export default function KnowledgeBasePage() {
               Agent Configuration
             </h2>
             <p className="text-sm text-muted-foreground">
-              Configure your AI agent's knowledge base and behavior
+              Configure your AI agent's instructions and knowledge base
             </p>
           </div>
         </div>
-
-        {/* Delete Message */}
-        {deleteMessage && (
-          <Alert variant={deleteMessage.type === 'error' ? 'destructive' : 'default'}>
-            {deleteMessage.type === 'success' ? (
-              <CheckCircle2 className="h-4 w-4" />
-            ) : (
-              <AlertCircle className="h-4 w-4" />
-            )}
-            <AlertDescription>{deleteMessage.text}</AlertDescription>
-          </Alert>
-        )}
 
         {/* Instructions Message */}
         {instructionsMessage && (
@@ -244,12 +190,12 @@ export default function KnowledgeBasePage() {
         )}
 
         <main className="flex flex-1 flex-col gap-6">
-          {/* Agent Instructions Section */}
+          {/* Combined Instructions and Knowledge Base Section */}
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold">Agent Instructions</h3>
+              <h3 className="text-lg font-semibold">Instructions and Knowledge Base</h3>
               <p className="text-sm text-muted-foreground">
-                Define how your agent should behave and respond to users
+                Write your agent's instructions and knowledge base together in one place
               </p>
             </div>
             
@@ -264,7 +210,7 @@ export default function KnowledgeBasePage() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label htmlFor="instructions" className="text-sm font-medium">
-                          Instructions
+                          Instructions and Knowledge Base
                         </label>
                         <span className="text-xs text-muted-foreground">
                           {instructions.length.toLocaleString()} characters
@@ -274,12 +220,32 @@ export default function KnowledgeBasePage() {
                         id="instructions"
                         value={instructions}
                         onChange={(e) => setInstructions(e.target.value)}
-                        placeholder="Enter agent instructions..."
-                        className="min-h-[280px] font-mono text-sm"
+                        placeholder="Enter your agent instructions and knowledge base here...
+
+Example:
+---
+AGENT INSTRUCTIONS:
+
+You are a helpful assistant for [Business Name].
+
+CRITICAL RULES:
+1. Always be polite and professional
+2. Use the knowledge base below to answer questions
+...
+
+---
+KNOWLEDGE BASE:
+
+## Company Information
+- We are based in [Location]
+- We service [Brands/Products]
+...
+"
+                        className="min-h-[400px] font-mono text-sm"
                         disabled={savingInstructions || resettingInstructions}
                       />
                       <p className="text-xs text-muted-foreground">
-                        These instructions will be used for all new calls. Changes take effect immediately.
+                        Write both your agent's behavior instructions and knowledge base content here. Changes take effect immediately for new calls.
                       </p>
                     </div>
 
@@ -297,7 +263,7 @@ export default function KnowledgeBasePage() {
                         ) : (
                           <>
                             <Save className="h-4 w-4" />
-                            Save Instructions
+                            Save
                           </>
                         )}
                       </Button>
@@ -336,60 +302,8 @@ export default function KnowledgeBasePage() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Knowledge Base Section */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold">Knowledge Base</h3>
-                <p className="text-sm text-muted-foreground">
-                  Upload and manage documents for your agent to reference
-                </p>
-              </div>
-              <Button
-                onClick={() => setShowDeleteModal(true)}
-                variant="outline"
-                size="sm"
-                className="gap-2 text-destructive hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-                Clear All
-              </Button>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Upload Documents</CardTitle>
-                <CardDescription>
-                  Supported formats: .txt, .pdf, .docx, .md
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <KnowledgeBaseUpload onUploadSuccess={handleUploadSuccess} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Uploaded Content</CardTitle>
-                <CardDescription>
-                  Browse and search through your knowledge base
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <KnowledgeBaseViewer refreshTrigger={refreshTrigger} />
-              </CardContent>
-            </Card>
-          </div>
         </main>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmModal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        onConfirm={handleDelete}
-      />
     </SidebarInset>
   );
 }

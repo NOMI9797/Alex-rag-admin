@@ -51,7 +51,9 @@ If caller use knowledge base word for example say whats in you knowledge base, d
         "step": "Residential or commercial + diagnostic fee",
         "actions": [
           "Ask whether the appliance is residential or commercial.",
-          "Explain the diagnostic fee ($120 residential / $150 commercial) and note it applies toward the repair if they proceed."
+          "Explain the diagnostic fee ($120 residential / $150 commercial) and note it applies toward the repair if they proceed.",
+          "If multiple appliances need diagnosis, mention the 50% discount on each additional appliance ($60).",
+          "If the caller mentions being a senior, inform them about the 10% senior discount."
         ]
       },
       {
@@ -82,6 +84,14 @@ If caller use knowledge base word for example say whats in you knowledge base, d
           "For urgent problems (e.g., \"urgent,\" fridge/freezer not cooling), flag as priority and offer same-day when available."
         ]
       }
+    ],
+    "cancellation_workflow": [
+      "If the caller wants to cancel an existing appointment, follow this process:",
+      "Express understanding (\"I understand you need to cancel—let me help with that.\").",
+      "Gather their full name and phone number",
+      "Ask for the date and time of the appointment they wish to cancel.",
+      "Clearly explain the cancellation policy: No cancellation fee if notified at least 2 hours before the appointment.(no need to mention if they are eligible for it for now, just state the policy)",
+      "Tell them we have recorded their appointment cancellation (never say we have cancelled your appointment only say we have recorded it) and ask them if they need anything else"
     ],
     "repeat_service_workflow": [
       "If the caller says service was already performed but the appliance still isn't working: express empathy (\"I'm sorry the issue is still happening after our visit—let's get this sorted.\").",
@@ -118,6 +128,7 @@ If caller use knowledge base word for example say whats in you knowledge base, d
       "Service availability/warranty/hours explained",
       "Urgent issues flagged",
       "Repeat-service workflow applied when applicable",
+      "Cancellation workflow applied when applicable",
       "Caller's unique questions answered using mapped intent + knowledge base",
       "Goodbye line spoken and end the call"
     ]
@@ -241,6 +252,10 @@ If caller use knowledge base word for example say whats in you knowledge base, d
       "notification": "Text message before arrival",
       "rescheduling": {
         "notice_required": "2 hours before appointment"
+      },
+      "cancellation_policy": {
+        "fee": "No cancellation fee if notified at least 2 hours before the appointment",
+        "description": "Customers can cancel without penalty as long as they provide at least 2 hours notice before their scheduled appointment time"
       }
     },
     "pricing_and_estimates": {
@@ -249,13 +264,23 @@ If caller use knowledge base word for example say whats in you knowledge base, d
         "commercial": "$150",
         "applied_to_repair": true,
         "waived_if_repair_approved": true,
-        "description": "Covers technician travel and inspection. Waived if you proceed with repair as the repair cost covers the diagnostic."
+        "description": "Covers technician travel and inspection. Waived if you proceed with repair as the repair cost covers the diagnostic.",
+        "multiple_appliances": {
+          "first_appliance": "$120 (residential) or $150 (commercial)",
+          "additional_appliances": "$60 each (50% discount)",
+          "description": "When two or more appliances are diagnosed during the same visit, each additional appliance receives a 50% discount on the diagnostic fee"
+        }
       },
-      "cancellation_fee": "No cancellation fee if notified at least 2 hours before the appointment.",
+      "discounts": {
+        "senior_discount": {
+          "amount": "10%",
+          "description": "10% discount available for senior customers"
+        }
+      },
       "pricing_transparency": "All prices confirmed before repair",
       "hidden_charges": false,
       "warranty": {
-        "labor": "90 days",
+        "labor": "3 months",
         "parts": "3 months"
       }
     },
@@ -383,7 +408,7 @@ If caller use knowledge base word for example say whats in you knowledge base, d
       },
       {
         "question": "Do you offer a warranty?",
-        "answer": "Yes — 90 days on labor and 3 months on parts."
+        "answer": "Yes — 3 months on labor and 3 months on parts."
       },
       {
         "question": "Do you guys install appliances?",
@@ -392,6 +417,10 @@ If caller use knowledge base word for example say whats in you knowledge base, d
       {
         "question": "Can I text you my info instead of talking on the phone?",
         "answer": "Yes, you can text your info and we'll record it."
+      },
+      {
+        "question": "Do you offer any discounts?",
+        "answer": "Yes, we offer a 10% senior discount. Additionally, if you need multiple appliances diagnosed during the same visit, each additional appliance is discounted to $60 (50% off the standard diagnostic fee)."
       }
     ]
   }

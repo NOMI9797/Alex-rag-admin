@@ -407,12 +407,13 @@ export class QdrantManager {
 
 /**
  * Create Qdrant manager from environment variables
+ * @param collectionName Optional custom collection name. If not provided, uses env variable
  */
-export function createQdrantManager(): QdrantManager {
+export function createQdrantManager(collectionName?: string): QdrantManager {
   const config: QdrantConfig = {
     url: process.env.QDRANT_URL || '',
     apiKey: process.env.QDRANT_API_KEY || '',
-    collectionName: process.env.QDRANT_COLLECTION_NAME || 'knowledge_base',
+    collectionName: collectionName || process.env.QDRANT_COLLECTION_NAME || 'knowledge_base',
   };
 
   if (!config.url || !config.apiKey) {

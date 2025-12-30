@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const org_id = getCurrentOrgId();
+    const org_id = await getCurrentOrgId();
 
     // Verify phone number belongs to current org
     const phoneNumber = await getPhoneNumberById(phoneNumberId);
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const org_id = getCurrentOrgId();
+    const org_id = await getCurrentOrgId();
 
     // Verify phone number belongs to current org
     const phoneNumber = await getPhoneNumberById(phoneNumberId);

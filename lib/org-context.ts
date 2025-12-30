@@ -3,37 +3,44 @@
  * Handles extracting org_id from session/auth context
  */
 
-/**
- * TEMPORARY: Hardcoded org_id for development
- * This will be replaced with session-based org_id after authentication is implemented
- */
-const DEV_ORG_ID = 'dev-org-001';
-const DEV_ORG_NAME = 'Development Organization';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 /**
- * Get current org_id from request context
- * 
- * In development: Returns hardcoded org_id
- * After auth implementation: Will extract from session/JWT
+ * Get current org_id from authenticated session
  * 
  * @returns org_id string
+ * @throws Error if no session or org_id
  */
-export function getCurrentOrgId(): string {
-  // TODO: After auth implementation, extract from session
-  // Example: const session = await getServerSession();
-  // return session.user.org_id;
-  
-  return DEV_ORG_ID;
+export async function getCurrentOrgId(): Promise<string> {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user) {
+    throw new Error('Unauthorized: No active session');
+  }
+
+  const orgId = (session.user as any).org_id;
+
+  if (!orgId) {
+    throw new Error('Unauthorized: No organization associated with user');
+  }
+
+  return orgId;
 }
 
 /**
- * Get current org name
+ * Get current org name from session
  * 
- * @returns org name string
+ * @returns org name string (or fallback)
  */
-export function getCurrentOrgName(): string {
-  // TODO: After auth implementation, fetch from database or session
-  return DEV_ORG_NAME;
+export async function getCurrentOrgName(): Promise<string> {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.name) {
+    return 'Organization';
+  }
+
+  return `${session.user.name}'s Organization`;
 }
 
 /**
@@ -51,11 +58,45 @@ export interface OrgContext {
 /**
  * Get full org context
  */
-export function getOrgContext(): OrgContext {
+export async function getOrgContext(): Promise<OrgContext> {
   return {
-    org_id: getCurrentOrgId(),
-    org_name: getCurrentOrgName(),
+    org_id: await getCurrentOrgId(),
+    org_name: await getCurrentOrgName(),
   };
+}
+
+/**
+ * Get current user ID from session
+ */
+export async function getCurrentUserId(): Promise<string> {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user) {
+    throw new Error('Unauthorized: No active session');
+  }
+
+  const userId = (session.user as any).id;
+
+  if (!userId) {
+    throw new Error('Unauthorized: No user ID in session');
+  }
+
+  return userId;
+}
+
+/**
+ * Get current user role from session
+ */
+export async function getCurrentUserRole(): Promise<string> {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user) {
+    throw new Error('Unauthorized: No active session');
+  }
+
+  const role = (session.user as any).role || 'member';
+
+  return role;
 }
 
 /**

@@ -14,7 +14,7 @@ export async function GET(
   try {
     const { id } = params;
 
-    const org_id = getCurrentOrgId();
+    const org_id = await getCurrentOrgId();
 
     // Get KB record
     const kb = await getKnowledgeBaseById(id);
@@ -51,4 +51,5 @@ export async function GET(
     );
   }
 }
+
 

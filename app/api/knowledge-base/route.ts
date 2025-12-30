@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const phoneNumberId = searchParams.get('phoneNumberId');
 
-    const org_id = getCurrentOrgId();
+    const org_id = await getCurrentOrgId();
 
     let knowledgeBases;
 
@@ -83,7 +83,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const org_id = getCurrentOrgId();
+    const org_id = await getCurrentOrgId();
 
     // Get KB record
     const kb = await getKnowledgeBaseById(id);
@@ -142,4 +142,5 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
 

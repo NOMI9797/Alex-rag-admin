@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const org_id = getCurrentOrgId();
+    const org_id = await getCurrentOrgId();
 
     // Check if phone number already exists
     const exists = await phoneNumberExists(org_id, phone_number);

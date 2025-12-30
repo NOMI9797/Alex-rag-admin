@@ -9,7 +9,7 @@ import { getPhoneNumbersByOrg } from '@/lib/models/phone-number';
 
 export async function GET() {
   try {
-    const org_id = getCurrentOrgId();
+    const org_id = await getCurrentOrgId();
 
     const phoneNumbers = await getPhoneNumbersByOrg(org_id);
 

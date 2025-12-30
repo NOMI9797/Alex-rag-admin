@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get org context
-    const org_id = getCurrentOrgId();
+    const org_id = await getCurrentOrgId();
 
     // Get phone number record
     const phoneNumber = await getPhoneNumberById(phoneNumberId);

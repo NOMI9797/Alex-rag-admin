@@ -32,13 +32,28 @@ if (process.env.NODE_ENV === 'development') {
 
   if (!globalWithMongo._mongoClientPromise) {
     client = new MongoClient(uri, options);
-    globalWithMongo._mongoClientPromise = client.connect();
+    // Wrap connection promise with error handling to prevent unhandled rejections
+    globalWithMongo._mongoClientPromise = client.connect().catch((error) => {
+      // Suppress transient DNS errors in development (they auto-retry)
+      if (error.code !== 'ESERVFAIL') {
+        console.error('MongoDB connection failed during initialization:', error);
+      }
+      // Re-throw to allow retry on next access
+      throw error;
+    });
   }
   clientPromise = globalWithMongo._mongoClientPromise;
 } else {
   // In production mode, it's best to not use a global variable.
   client = new MongoClient(uri, options);
-  clientPromise = client.connect();
+  // Wrap connection promise with error handling
+  clientPromise = client.connect().catch((error) => {
+    // Suppress transient DNS errors (they auto-retry)
+    if (error.code !== 'ESERVFAIL') {
+      console.error('MongoDB connection failed during initialization:', error);
+    }
+    throw error;
+  });
 }
 
 /**
@@ -54,8 +69,11 @@ export async function getMongoClient(): Promise<MongoClient> {
     }
     
     return client;
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
+  } catch (error: any) {
+    // Suppress transient DNS errors in logs
+    if (error.code !== 'ESERVFAIL') {
+      console.error('MongoDB connection error:', error);
+    }
     throw error;
   }
 }

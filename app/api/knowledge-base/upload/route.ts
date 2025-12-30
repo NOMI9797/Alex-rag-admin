@@ -113,7 +113,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create KB record in database
+    // Generate embeddings BEFORE creating DB record
+    console.log(`Generating embeddings for ${paragraphs.length} paragraphs...`);
+    const embeddings = await createEmbeddings(paragraphs);
+
+    // Upload to Qdrant BEFORE creating DB record
+    const qdrant = createQdrantManager(collectionName);
+    await qdrant.ensureCollection();
+
+    // Prepare temporary metadata for upload (without knowledge_base_id)
+    const tempMetadata = paragraphs.map((_, index) => ({
+      org_id,
+      phone_number_id: phoneNumberId,
+      filename: file.name,
+      paragraph_index: index,
+      source: 'knowledge_base',
+      uploaded_at: new Date().toISOString(),
+      last_4_digits: phoneNumber.last_4_digits,
+    }));
+
+    const uploadSuccess = await qdrant.uploadVectors(embeddings, paragraphs, tempMetadata);
+
+    if (!uploadSuccess) {
+      // DON'T create DB record if Qdrant upload fails
+      return NextResponse.json(
+        { error: 'Failed to upload vectors to Qdrant' },
+        { status: 500 }
+      );
+    }
+
+    // Only create KB record in database AFTER successful Qdrant upload
     const fileType = file.name.split('.').pop()?.toLowerCase() || 'unknown';
     const kb = await createKnowledgeBase({
       org_id,
@@ -125,45 +154,8 @@ export async function POST(request: NextRequest) {
       file_size: file.size,
       file_type: fileType,
     });
-
-    // Update status to processing
-    await updateKnowledgeBase(kb._id!.toString(), { status: 'processing' });
-
-    // Generate embeddings
-    console.log(`Generating embeddings for ${paragraphs.length} paragraphs...`);
-    const embeddings = await createEmbeddings(paragraphs);
-
-    // Prepare metadata
-    const metadata = paragraphs.map((_, index) => ({
-      org_id,
-      phone_number_id: phoneNumberId,
-      knowledge_base_id: kb._id!.toString(),
-      filename: file.name,
-      paragraph_index: index,
-      source: 'knowledge_base',
-      uploaded_at: new Date().toISOString(),
-      last_4_digits: phoneNumber.last_4_digits,
-    }));
-
-    // Upload to Qdrant with dynamic collection name
-    const qdrant = createQdrantManager(collectionName);
-    await qdrant.ensureCollection();
-
-    const success = await qdrant.uploadVectors(embeddings, paragraphs, metadata);
-
-    if (!success) {
-      await updateKnowledgeBase(kb._id!.toString(), {
-        status: 'error',
-        error_message: 'Failed to upload vectors to Qdrant',
-      });
-
-      return NextResponse.json(
-        { error: 'Failed to upload vectors to Qdrant' },
-        { status: 500 }
-      );
-    }
-
-    // Update KB record with vector count and status
+    
+    // Update with vector count and status
     await updateKnowledgeBase(kb._id!.toString(), {
       vector_count: paragraphs.length,
       status: 'ready',

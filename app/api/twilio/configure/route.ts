@@ -63,37 +63,24 @@ export async function POST(request: NextRequest) {
     );
 
     if (!verifyResult.valid) {
+      // DON'T create database record if phone number doesn't exist in Twilio
       return NextResponse.json({
         success: false,
-        error: verifyResult.error || 'Phone number not found',
+        error: verifyResult.error || 'Phone number not found in your Twilio account',
       }, { status: 400 });
     }
 
-    // 3. Create phone number record in database
-    const phoneNumberRecord = await createPhoneNumber({
-      org_id,
-      phone_number: phoneNumber,
-      twilio_account_sid: accountSid,
-      twilio_auth_token: authToken, // TODO: Encrypt in production
-    });
-
-    // 4. Get LiveKit SIP URI (from phone number config or env)
-    // Note: LiveKit config will be set later in Settings, for now use env
+    // 3. Get LiveKit SIP URI first (before creating DB record)
     const livekitSipUri = process.env.LIVEKIT_SIP_URI || '';
     
     if (!livekitSipUri) {
-      // Rollback: Update status to error
-      await updatePhoneNumber(phoneNumberRecord._id!.toString(), {
-        status: 'error',
-        error_message: 'LiveKit SIP URI not configured. Please configure it in Settings.',
-      });
-
       return NextResponse.json({
         success: false,
-        error: 'LiveKit SIP URI not configured. Please configure it in Settings.',
+        error: 'LiveKit SIP URI not configured in environment variables',
       }, { status: 500 });
     }
 
+    // 4. Setup SIP trunk BEFORE creating database record
     const trunkResult = await twilioService.setupSIPTrunk(
       { accountSid, authToken },
       org_id,
@@ -102,24 +89,30 @@ export async function POST(request: NextRequest) {
     );
 
     if (!trunkResult.success) {
-      // Rollback: Update status to error
-      await updatePhoneNumber(phoneNumberRecord._id!.toString(), {
-        status: 'error',
-        error_message: trunkResult.error || 'Failed to setup SIP trunk',
-      });
-
+      // DON'T create database record if SIP trunk setup fails
       return NextResponse.json({
         success: false,
         error: trunkResult.error || 'Failed to setup SIP trunk',
       }, { status: 500 });
     }
 
-    // 5. Update phone number record with trunk SID
-    await updatePhoneNumber(phoneNumberRecord._id!.toString(), {
-      twilio_trunk_sid: trunkResult.trunkSid,
-      status: 'configured',
+    // 5. Only NOW create phone number record in database (after all validations pass)
+    const phoneNumberRecord = await createPhoneNumber({
+      org_id,
+      phone_number: phoneNumber,
+      twilio_account_sid: accountSid,
+      twilio_auth_token: authToken, // TODO: Encrypt in production
     });
 
+    // Update with trunk_sid and status
+    if (trunkResult.trunk_sid) {
+      await updatePhoneNumber(phoneNumberRecord._id!.toString(), {
+        twilio_trunk_sid: trunkResult.trunk_sid,
+        status: 'configured',
+      });
+    }
+
+    // 6. Return success
     return NextResponse.json({
       success: true,
       message: 'Phone number configured successfully',
@@ -128,7 +121,7 @@ export async function POST(request: NextRequest) {
         phone_number: phoneNumber,
         last_4_digits: phoneNumberRecord.last_4_digits,
         status: 'configured',
-        trunk_sid: trunkResult.trunkSid,
+        trunk_sid: trunkResult.trunk_sid,
       },
     });
 

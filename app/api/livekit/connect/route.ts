@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentOrgId } from '@/lib/org-context';
-import { phoneNumberExists, extractLast4Digits, updatePhoneNumber } from '@/lib/models/phone-number';
+import { extractLast4Digits, updatePhoneNumber } from '@/lib/models/phone-number';
 import { createLiveKitService } from '@/lib/livekit-service';
 
 export async function POST(request: NextRequest) {
@@ -27,8 +27,11 @@ export async function POST(request: NextRequest) {
     const org_id = await getCurrentOrgId();
 
     // Check if phone number already exists
-    const exists = await phoneNumberExists(org_id, phone_number);
-    if (exists) {
+    const { getPhoneNumberByNumber } = await import('@/lib/models/phone-number');
+    const existingPhoneNumber = await getPhoneNumberByNumber(org_id, phone_number);
+    
+    // If phone number exists and is already active/configured, reject
+    if (existingPhoneNumber && (existingPhoneNumber.status === 'active' || existingPhoneNumber.status === 'configured')) {
       return NextResponse.json(
         {
           success: false,
@@ -37,6 +40,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    
+    // If phone number exists with 'pending' or 'error' status, we'll update it instead of creating new
+    const isUpdate = existingPhoneNumber !== null;
 
     // Get LiveKit credentials from env (required)
     const livekit_url = process.env.LIVEKIT_URL;
@@ -74,25 +80,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create phone number record with Twilio credentials
-    const { createPhoneNumber } = await import('@/lib/models/phone-number');
-    const phoneNumberRecord = await createPhoneNumber({
-      org_id,
-      phone_number,
-      twilio_account_sid: twilio_account_sid,
-      twilio_auth_token: twilio_api_secret, // Store API Secret as auth token
-    });
-
-    // Store LiveKit credentials in phone number record (from env)
-    await updatePhoneNumber(phoneNumberRecord._id!.toString(), {
-      livekit_api_key,
-      livekit_api_secret,
-      livekit_url,
-      livekit_sip_uri,
-      status: 'configured',
-    });
-
-    // Validate Twilio credentials before creating trunk
+    // Validate Twilio credentials and create trunk FIRST (before DB record)
     console.log('Validating Twilio credentials...');
     console.log('Account SID:', twilio_account_sid);
     console.log('API Key:', twilio_api_key);
@@ -115,22 +103,12 @@ export async function POST(request: NextRequest) {
     );
 
     if (!trunkResult.success || !trunkResult.trunk_sid) {
-      // Rollback: Update status to error
-      await updatePhoneNumber(phoneNumberRecord._id!.toString(), {
-        status: 'error',
-        error_message: trunkResult.error || 'Failed to create Twilio SIP trunk',
-      });
-
+      // DON'T create database record if SIP trunk setup fails
       return NextResponse.json({
         success: false,
         error: trunkResult.error || 'Failed to create Twilio SIP trunk',
       }, { status: 400 });
     }
-
-    // Store trunk SID
-    await updatePhoneNumber(phoneNumberRecord._id!.toString(), {
-      twilio_trunk_sid: trunkResult.trunk_sid,
-    });
 
     console.log('=== Creating LiveKit Dispatch Rule ===');
     console.log('Trunk SID:', trunkResult.trunk_sid);
@@ -150,55 +128,83 @@ export async function POST(request: NextRequest) {
     console.log('Creating dispatch rule:', ruleId);
     console.log('Last 4 digits:', last4);
     
+    // Temporary metadata for dispatch rule creation
+    const tempMetadata = {
+      org_id,
+      org_name: 'Organization',
+      last_4_digits: last4,
+    };
+    
     const dispatchResult = await livekit.createDispatchRule({
       ruleId,
       trunkIds: [trunkResult.trunk_sid], // Use the created Twilio trunk SID
       inboundNumbers: [phone_number],
-      metadata: {
-        customer_id: phoneNumberRecord._id!.toString(),
-        org_id,
-        phone_number_id: phoneNumberRecord._id!.toString(),
-        org_name: 'Organization',
-        last_4_digits: last4,
-      },
+      metadata: tempMetadata,
     });
     
     console.log('Dispatch result:', dispatchResult);
 
-    if (dispatchResult.success && dispatchResult.ruleId) {
+    if (!dispatchResult.success || !dispatchResult.ruleId) {
+      // DON'T create database record if dispatch rule creation fails
+      return NextResponse.json({
+        success: false,
+        error: dispatchResult.error || 'Failed to create LiveKit dispatch rule',
+      }, { status: 400 });
+    }
+
+    // Only create/update phone number record AFTER everything succeeds
+    let phoneNumberRecord;
+    
+    if (isUpdate && existingPhoneNumber) {
+      // Update existing record
+      await updatePhoneNumber(existingPhoneNumber._id!.toString(), {
+        twilio_account_sid: twilio_account_sid,
+        twilio_auth_token: twilio_api_secret, // Store API Secret as auth token
+        twilio_trunk_sid: trunkResult.trunk_sid,
+        livekit_api_key,
+        livekit_api_secret,
+        livekit_url,
+        livekit_sip_uri,
+        livekit_dispatch_rule_id: dispatchResult.ruleId,
+        status: 'active',
+        error_message: undefined, // Clear any previous error
+      });
+      phoneNumberRecord = {
+        ...existingPhoneNumber,
+        _id: existingPhoneNumber._id,
+      };
+    } else {
+      // Create new record
+      const { createPhoneNumber } = await import('@/lib/models/phone-number');
+      phoneNumberRecord = await createPhoneNumber({
+        org_id,
+        phone_number,
+        twilio_account_sid: twilio_account_sid,
+        twilio_auth_token: twilio_api_secret, // Store API Secret as auth token
+      });
+      
+      // Update with all additional fields
       await updatePhoneNumber(phoneNumberRecord._id!.toString(), {
+        twilio_trunk_sid: trunkResult.trunk_sid,
+        livekit_api_key,
+        livekit_api_secret,
+        livekit_url,
+        livekit_sip_uri,
         livekit_dispatch_rule_id: dispatchResult.ruleId,
         status: 'active',
       });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Phone number connected successfully with LiveKit',
-        phoneNumber: {
-          id: phoneNumberRecord._id!.toString(),
-          phone_number,
-          last_4_digits: extractLast4Digits(phone_number),
-          status: 'active',
-        },
-      });
-    } else {
-      // Dispatch rule creation failed - update phone number with error status
-      await updatePhoneNumber(phoneNumberRecord._id!.toString(), {
-        status: 'error',
-        error_message: dispatchResult.error || 'Failed to create LiveKit dispatch rule',
-      });
-
-      return NextResponse.json({
-        success: false,
-        error: dispatchResult.error || 'Failed to create LiveKit dispatch rule. Phone number was created but dispatch rule setup failed.',
-        phoneNumber: {
-          id: phoneNumberRecord._id!.toString(),
-          phone_number,
-          last_4_digits: extractLast4Digits(phone_number),
-          status: 'error',
-        },
-      }, { status: 400 });
     }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Phone number connected successfully with LiveKit',
+      phoneNumber: {
+        id: phoneNumberRecord._id!.toString(),
+        phone_number,
+        last_4_digits: extractLast4Digits(phone_number),
+        status: 'active',
+      },
+    });
   } catch (error) {
     console.error('Error in POST /api/livekit/connect:', error);
     return NextResponse.json(

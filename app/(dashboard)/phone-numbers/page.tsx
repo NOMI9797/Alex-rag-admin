@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Phone, Trash2, Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import ConnectionMethodDialog from "@/components/ConnectionMethodDialog";
 import AddPhoneNumberDialog from "@/components/AddPhoneNumberDialog";
+import ApiKeyConnectionDialog from "@/components/ApiKeyConnectionDialog";
 
 interface PhoneNumber {
   id: string;
@@ -25,7 +27,9 @@ export default function PhoneNumbersPage() {
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showMethodSelection, setShowMethodSelection] = useState(false);
+  const [showAuthTokenDialog, setShowAuthTokenDialog] = useState(false);
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
 
   const fetchPhoneNumbers = async () => {
     try {
@@ -98,7 +102,7 @@ export default function PhoneNumbersPage() {
               Connect and manage your Twilio phone numbers
             </p>
           </div>
-          <Button onClick={() => setShowAddDialog(true)} className="gap-2">
+          <Button onClick={() => setShowMethodSelection(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             Add Phone Number
           </Button>
@@ -129,7 +133,7 @@ export default function PhoneNumbersPage() {
                   <p className="text-sm text-muted-foreground mb-4">
                     Get started by connecting your first Twilio phone number
                   </p>
-                  <Button onClick={() => setShowAddDialog(true)} className="gap-2">
+                  <Button onClick={() => setShowMethodSelection(true)} className="gap-2">
                     <Plus className="h-4 w-4" />
                     Add Phone Number
                   </Button>
@@ -198,11 +202,33 @@ export default function PhoneNumbersPage() {
         </main>
       </div>
 
+      <ConnectionMethodDialog
+        open={showMethodSelection}
+        onClose={() => setShowMethodSelection(false)}
+        onSelectMethod={(method) => {
+          setShowMethodSelection(false);
+          if (method === 'auth_token') {
+            setShowAuthTokenDialog(true);
+          } else {
+            setShowApiKeyDialog(true);
+          }
+        }}
+      />
+
       <AddPhoneNumberDialog
-        open={showAddDialog}
-        onClose={() => setShowAddDialog(false)}
+        open={showAuthTokenDialog}
+        onClose={() => setShowAuthTokenDialog(false)}
         onSuccess={() => {
-          setShowAddDialog(false);
+          setShowAuthTokenDialog(false);
+          fetchPhoneNumbers();
+        }}
+      />
+
+      <ApiKeyConnectionDialog
+        open={showApiKeyDialog}
+        onClose={() => setShowApiKeyDialog(false)}
+        onSuccess={() => {
+          setShowApiKeyDialog(false);
           fetchPhoneNumbers();
         }}
       />

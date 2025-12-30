@@ -46,12 +46,21 @@ export default function KnowledgeBaseNewPage() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setPhoneNumbers(data.phoneNumbers || []);
-        // Select first phone number by default
-        if (data.phoneNumbers && data.phoneNumbers.length > 0) {
-          setSelectedPhoneNumber(data.phoneNumbers[0].id);
+        // Filter out phone numbers that don't start with '+' (invalid format)
+        // Also filter out phone numbers with error status
+        const validPhoneNumbers = (data.phoneNumbers || []).filter(
+          (pn: PhoneNumber) => 
+            pn.phone_number.startsWith('+') && 
+            pn.status !== 'error'
+        );
+        
+        setPhoneNumbers(validPhoneNumbers);
+        
+        // Select first valid phone number by default
+        if (validPhoneNumbers.length > 0) {
+          setSelectedPhoneNumber(validPhoneNumbers[0].id);
         } else {
-          // No phone numbers - clear selection
+          // No valid phone numbers - clear selection
           setSelectedPhoneNumber(null);
         }
       }

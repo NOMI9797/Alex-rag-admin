@@ -129,8 +129,14 @@ export async function POST(request: NextRequest) {
     console.log('Last 4 digits:', last4);
     
     // Temporary metadata for dispatch rule creation
+    // Use existing phone number ID if updating, otherwise use temporary ID
+    const phoneNumberId = existingPhoneNumber?._id?.toString() || 'temp-' + Date.now();
+    const customerId = existingPhoneNumber?._id?.toString() || 'temp-customer-' + Date.now();
+    
     const tempMetadata = {
+      customer_id: customerId,
       org_id,
+      phone_number_id: phoneNumberId,
       org_name: 'Organization',
       last_4_digits: last4,
     };
@@ -157,7 +163,8 @@ export async function POST(request: NextRequest) {
     
     if (isUpdate && existingPhoneNumber) {
       // Update existing record
-      await updatePhoneNumber(existingPhoneNumber._id!.toString(), {
+      const actualPhoneNumberId = existingPhoneNumber._id!.toString();
+      await updatePhoneNumber(actualPhoneNumberId, {
         twilio_account_sid: twilio_account_sid,
         twilio_auth_token: twilio_api_secret, // Store API Secret as auth token
         twilio_trunk_sid: trunkResult.trunk_sid,
@@ -173,6 +180,22 @@ export async function POST(request: NextRequest) {
         ...existingPhoneNumber,
         _id: existingPhoneNumber._id,
       };
+      
+      // Update dispatch rule metadata with actual phone number ID
+      const updatedMetadata = {
+        customer_id: actualPhoneNumberId,
+        org_id,
+        phone_number_id: actualPhoneNumberId,
+        org_name: 'Organization',
+        last_4_digits: last4,
+      };
+      
+      await livekit.updateDispatchRule(dispatchResult.ruleId!, {
+        ruleId: dispatchResult.ruleId!,
+        trunkIds: [trunkResult.trunk_sid],
+        inboundNumbers: [phone_number],
+        metadata: updatedMetadata,
+      });
     } else {
       // Create new record
       const { createPhoneNumber } = await import('@/lib/models/phone-number');
@@ -192,6 +215,23 @@ export async function POST(request: NextRequest) {
         livekit_sip_uri,
         livekit_dispatch_rule_id: dispatchResult.ruleId,
         status: 'active',
+      });
+      
+      // Update dispatch rule metadata with actual phone number ID
+      const actualPhoneNumberId = phoneNumberRecord._id!.toString();
+      const updatedMetadata = {
+        customer_id: actualPhoneNumberId,
+        org_id,
+        phone_number_id: actualPhoneNumberId,
+        org_name: 'Organization',
+        last_4_digits: last4,
+      };
+      
+      await livekit.updateDispatchRule(dispatchResult.ruleId!, {
+        ruleId: dispatchResult.ruleId!,
+        trunkIds: [trunkResult.trunk_sid],
+        inboundNumbers: [phone_number],
+        metadata: updatedMetadata,
       });
     }
 

@@ -13,7 +13,7 @@ import {
   updateKnowledgeBase,
   knowledgeBaseNameExists,
 } from '@/lib/models/knowledge-base';
-import { getPhoneNumberById } from '@/lib/models/phone-number';
+import { getPhoneNumberById, sanitizePhoneNumber } from '@/lib/models/phone-number';
 
 export async function POST(request: NextRequest) {
   try {
@@ -80,9 +80,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create collection name: {last_4_digits}_{kb_name}
+    // Create collection name: {sanitized_phone_number}_{kb_name}
     // Note: Qdrant doesn't allow forward slashes in collection names, so we use underscore
-    const collectionName = `${phoneNumber.last_4_digits}_${knowledgeBaseName}`;
+    const sanitizedPhone = sanitizePhoneNumber(phoneNumber.phone_number);
+    const collectionName = `${sanitizedPhone}_${knowledgeBaseName}`;
 
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());

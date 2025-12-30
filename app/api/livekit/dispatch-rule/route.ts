@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createLiveKitServiceFromPhoneNumber } from '@/lib/livekit-service';
 import { getCurrentOrgId } from '@/lib/org-context';
-import { getPhoneNumberById, updatePhoneNumber } from '@/lib/models/phone-number';
+import { getPhoneNumberById, sanitizePhoneNumber, updatePhoneNumber } from '@/lib/models/phone-number';
 
 /**
  * POST - Create dispatch rule
@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
 
     // Create dispatch rule using phone number-specific config
     const livekit = await createLiveKitServiceFromPhoneNumber(phoneNumberId);
-    const ruleId = `rule-${phoneNumber.last_4_digits}-${Date.now()}`;
+    const sanitizedPhone = sanitizePhoneNumber(phoneNumber.phone_number);
+    const ruleId = `rule-${sanitizedPhone}-${Date.now()}`;
 
     const result = await livekit.createDispatchRule({
       ruleId,
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
         org_id: phoneNumber.org_id,
         phone_number_id: phoneNumberId,
         org_name: metadata?.org_name || 'Organization',
-        last_4_digits: phoneNumber.last_4_digits,
+        phone_number: phoneNumber.phone_number,
         ...metadata,
       },
     });
@@ -210,7 +211,8 @@ export async function PATCH(request: NextRequest) {
       // Delete and recreate with new metadata
       await livekit.deleteDispatchRule(phoneNumber.livekit_dispatch_rule_id);
 
-      const ruleId = `rule-${phoneNumber.last_4_digits}-${Date.now()}`;
+      const sanitizedPhone = sanitizePhoneNumber(phoneNumber.phone_number);
+      const ruleId = `rule-${sanitizedPhone}-${Date.now()}`;
       const result = await livekit.createDispatchRule({
         ruleId,
         trunkIds: [phoneNumber.twilio_trunk_sid!],
@@ -220,7 +222,7 @@ export async function PATCH(request: NextRequest) {
           org_id: phoneNumber.org_id,
           phone_number_id: phoneNumberId,
           org_name: metadata?.org_name || 'Organization',
-          last_4_digits: phoneNumber.last_4_digits,
+          phone_number: phoneNumber.phone_number,
           ...metadata,
         },
       });

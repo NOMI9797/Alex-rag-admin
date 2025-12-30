@@ -18,6 +18,16 @@ export function extractLast4Digits(phoneNumber: string): string {
 }
 
 /**
+ * Sanitize phone number for use in collection names and room names
+ * Removes all non-alphanumeric characters except underscores and hyphens
+ */
+export function sanitizePhoneNumber(phoneNumber: string): string {
+  // Remove +, spaces, parentheses, and other special chars
+  // Keep only digits, letters, underscores, and hyphens
+  return phoneNumber.replace(/[^a-zA-Z0-9_-]/g, '');
+}
+
+/**
  * Get phone numbers by org_id
  */
 export async function getPhoneNumbersByOrg(org_id: string): Promise<PhoneNumber[]> {

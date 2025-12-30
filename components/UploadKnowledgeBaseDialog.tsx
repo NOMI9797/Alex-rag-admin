@@ -129,7 +129,7 @@ export default function UploadKnowledgeBaseDialog({
               <DialogTitle>Upload Knowledge Base</DialogTitle>
                   <DialogDescription>
                     Upload a document to create a new knowledge base for the selected phone number.
-                    The collection will be named: <code className="text-xs bg-muted px-1 rounded">{`{last_4_digits}_{kb_name}`}</code>
+                    The collection will be named: <code className="text-xs bg-muted px-1 rounded">{`{phone_number}_{kb_name}`}</code>
                   </DialogDescription>
             </DialogHeader>
 
@@ -160,10 +160,10 @@ export default function UploadKnowledgeBaseDialog({
                 disabled={uploading}
               />
               <p className="text-xs text-muted-foreground">
-                This will be used to create the Qdrant collection name: <code className="bg-muted px-1 rounded text-xs">{`{phone_last_4_digits}_{knowledgeBaseName || '...'}`}</code>
+                This will be used to create the Qdrant collection name: <code className="bg-muted px-1 rounded text-xs">{`{sanitized_phone_number}_{knowledgeBaseName || '...'}`}</code>
                 <br />
                 <span className="text-xs text-muted-foreground">
-                  Example: If phone number ends in 4678, collection will be: <code className="bg-muted px-1 rounded">4678_{knowledgeBaseName || 'kb_name'}</code>
+                  Example: If phone number is +15034863998, collection will be: <code className="bg-muted px-1 rounded">15034863998_{knowledgeBaseName || 'kb_name'}</code>
                 </span>
               </p>
             </div>

@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentOrgId } from '@/lib/org-context';
-import { extractLast4Digits, updatePhoneNumber } from '@/lib/models/phone-number';
+import { extractLast4Digits, sanitizePhoneNumber, updatePhoneNumber } from '@/lib/models/phone-number';
 import { createLiveKitService } from '@/lib/livekit-service';
 
 export async function POST(request: NextRequest) {
@@ -122,11 +122,11 @@ export async function POST(request: NextRequest) {
       sipUri: livekit_sip_uri,
     });
 
-    const last4 = extractLast4Digits(phone_number);
-    const ruleId = `rule-${last4}-${Date.now()}`;
+    const sanitizedPhone = sanitizePhoneNumber(phone_number);
+    const ruleId = `rule-${sanitizedPhone}-${Date.now()}`;
     
     console.log('Creating dispatch rule:', ruleId);
-    console.log('Last 4 digits:', last4);
+    console.log('Phone number:', phone_number);
     
     // Temporary metadata for dispatch rule creation
     // Use existing phone number ID if updating, otherwise use temporary ID
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
       org_id,
       phone_number_id: phoneNumberId,
       org_name: 'Organization',
-      last_4_digits: last4,
+      phone_number: phone_number,
     };
     
     const dispatchResult = await livekit.createDispatchRule({
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
         org_id,
         phone_number_id: actualPhoneNumberId,
         org_name: 'Organization',
-        last_4_digits: last4,
+        phone_number: phone_number,
       };
       
       await livekit.updateDispatchRule(dispatchResult.ruleId!, {
@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
         org_id,
         phone_number_id: actualPhoneNumberId,
         org_name: 'Organization',
-        last_4_digits: last4,
+        phone_number: phone_number,
       };
       
       await livekit.updateDispatchRule(dispatchResult.ruleId!, {

@@ -10,7 +10,7 @@ export interface DispatchRuleMetadata {
   phone_number_id: string;
   knowledge_base_id?: string;
   org_name: string;
-  last_4_digits: string;
+  phone_number: string; // Full phone number for uniqueness
 }
 
 export interface CreateDispatchRuleParams {
@@ -83,9 +83,12 @@ export class LiveKitService {
       // Create dispatch rule using LiveKit SDK signature: createSipDispatchRule(rule, options)
       // Reference: https://docs.livekit.io/telephony/accepting-calls/dispatch-rule/
       
+      // Sanitize phone number for room name (remove +, spaces, etc.)
+      const sanitizedPhone = metadata.phone_number.replace(/[^a-zA-Z0-9_-]/g, '');
+      
       // First parameter: the rule object (SipDispatchRuleDirect)
       const rule = {
-        roomName: `room-${metadata.last_4_digits}`,
+        roomName: `room-${sanitizedPhone}`,
         type: 'direct' as const,  // TypeScript literal type
       };
       
@@ -98,7 +101,7 @@ export class LiveKitService {
         metadata: JSON.stringify({
           org_id: metadata.org_id,
           phone_number_id: metadata.phone_number_id,
-          last_4_digits: metadata.last_4_digits,
+          phone_number: metadata.phone_number,
         }),
       };
       

@@ -12,6 +12,7 @@ import {
   createKnowledgeBase,
   updateKnowledgeBase,
   knowledgeBaseNameExists,
+  getKnowledgeBasesByOrg,
 } from '@/lib/models/knowledge-base';
 import { getPhoneNumberById, sanitizePhoneNumber } from '@/lib/models/phone-number';
 
@@ -47,6 +48,15 @@ export async function POST(request: NextRequest) {
 
     // Get org context
     const org_id = await getCurrentOrgId();
+
+    // Check if user already has a knowledge base (limit: 1 knowledge base per user)
+    const existingKnowledgeBases = await getKnowledgeBasesByOrg(org_id);
+    if (existingKnowledgeBases.length > 0) {
+      return NextResponse.json(
+        { error: 'You can only have one knowledge base at a time. Please delete the existing knowledge base before uploading a new one.' },
+        { status: 400 }
+      );
+    }
 
     // Get phone number record
     const phoneNumber = await getPhoneNumberById(phoneNumberId);

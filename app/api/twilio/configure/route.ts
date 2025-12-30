@@ -31,6 +31,24 @@ export async function POST(request: NextRequest) {
     // Get org context
     const org_id = await getCurrentOrgId();
 
+    // Check if user already has an active/configured phone number (limit: 1 phone number per user)
+    const { getPhoneNumbersByOrg } = await import('@/lib/models/phone-number');
+    const existingPhoneNumbers = await getPhoneNumbersByOrg(org_id);
+    const activePhoneNumber = existingPhoneNumbers.find(
+      pn => pn.status === 'active' || pn.status === 'configured'
+    );
+    
+    // If user already has an active phone number and this is a different number, reject
+    if (activePhoneNumber && activePhoneNumber.phone_number !== phoneNumber) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'You can only connect one phone number at a time. Please disconnect the existing phone number first.' 
+        },
+        { status: 400 }
+      );
+    }
+
     // Check if phone number already exists for this org
     const exists = await phoneNumberExists(org_id, phoneNumber);
     if (exists) {

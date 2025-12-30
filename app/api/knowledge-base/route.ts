@@ -103,14 +103,16 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete vectors from Qdrant
+    // Delete collection from Qdrant
     try {
       const qdrant = createQdrantManager(kb.collection_name);
-      const exists = await qdrant.collectionExists();
-
-      if (exists) {
-        // Delete entire collection
-        await qdrant.deleteAll();
+      const deleted = await qdrant.deleteCollection();
+      
+      if (!deleted) {
+        console.error(`Failed to delete Qdrant collection: ${kb.collection_name}`);
+        // Continue with database deletion even if Qdrant deletion fails
+      } else {
+        console.log(`Successfully deleted Qdrant collection: ${kb.collection_name}`);
       }
     } catch (error) {
       console.error('Failed to delete Qdrant collection:', error);

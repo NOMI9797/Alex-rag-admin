@@ -257,6 +257,27 @@ export class QdrantManager {
   }
 
   /**
+   * Delete the entire collection from Qdrant
+   */
+  async deleteCollection(): Promise<boolean> {
+    try {
+      const exists = await this.collectionExists();
+      
+      if (exists) {
+        await this.client.deleteCollection(this.collectionName);
+        console.log(`Successfully deleted collection: ${this.collectionName}`);
+        return true;
+      }
+      
+      console.log(`Collection does not exist: ${this.collectionName}`);
+      return true; // Return true if collection doesn't exist (already deleted)
+    } catch (error) {
+      console.error(`Error deleting collection '${this.collectionName}':`, error);
+      return false;
+    }
+  }
+
+  /**
    * Store configuration data in Qdrant using scroll to find and update
    */
   async uploadConfig(configKey: string, configValue: string): Promise<boolean> {

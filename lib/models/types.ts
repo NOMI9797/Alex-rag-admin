@@ -52,19 +52,40 @@ export interface KnowledgeBase {
   updated_at: Date;
 }
 
-// Call Logs (for future use)
+// Call Logs
 export interface CallLog {
   _id?: ObjectId;
   org_id: string;
   phone_number_id: ObjectId;
-  knowledge_base_id: ObjectId;
+  knowledge_base_id?: ObjectId; // Optional: may not have KB
   call_sid: string; // Twilio call SID
-  from_number: string;
-  to_number: string;
+  from_number: string; // Caller's number
+  to_number: string; // Business number
+  start_time: Date; // When call started
+  end_time?: Date; // When call ended
   duration: number; // Seconds
-  status: string;
-  transcript?: string;
+  status: 'ringing' | 'in-progress' | 'completed' | 'failed' | 'busy' | 'no-answer';
+  transcript?: string; // Full conversation transcript
+  summary?: string; // AI-generated call summary
+  sentiment?: 'positive' | 'neutral' | 'negative'; // Call sentiment analysis
+  questions_asked?: string[]; // List of questions caller asked
+  questions_answered?: string[]; // List of questions agent answered
   created_at: Date;
+  updated_at?: Date;
+}
+
+// Agent Configuration (per customer/phone number)
+export interface AgentConfig {
+  _id?: ObjectId;
+  org_id: string;
+  phone_number_id?: ObjectId; // Optional: per-phone config, or org-wide if null
+  system_prompt?: string; // Custom instructions for agent behavior
+  temperature?: number; // LLM temperature (0-2)
+  max_tokens?: number; // Max response length
+  model?: string; // LLM model to use (e.g., 'gpt-4', 'gpt-3.5-turbo')
+  is_active: boolean; // Enable/disable custom config
+  created_at: Date;
+  updated_at: Date;
 }
 
 // Subscriptions (for future use)

@@ -27,6 +27,7 @@ export interface PhoneNumber {
   livekit_api_secret?: string; // LiveKit API Secret for this phone number
   livekit_url?: string; // LiveKit WebSocket URL
   livekit_sip_uri?: string; // LiveKit SIP URI
+  livekit_inbound_trunk_id?: string; // LiveKit Inbound Trunk ID (ST_...)
   livekit_dispatch_rule_id?: string; // Set after dispatch rule creation
   status: 'pending' | 'configured' | 'active' | 'error';
   error_message?: string;

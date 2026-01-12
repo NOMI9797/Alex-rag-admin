@@ -252,7 +252,46 @@ export class TwilioService {
   }
 
   /**
-   * Complete SIP trunk setup (create trunk + add phone number)
+   * Configure phone number voice settings to use SIP trunk
+   * When a phone number is added to a trunk, we need to clear voiceUrl
+   * so calls route to the trunk instead of a webhook
+   */
+  async configurePhoneNumberVoice(
+    credentials: TwilioCredentials,
+    phoneNumberSid: string
+  ): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      const client = this.createClient(credentials);
+      
+      console.log('Configuring phone number voice settings to use SIP trunk...');
+      
+      // Get current phone number configuration
+      const phoneNumber = await client.incomingPhoneNumbers(phoneNumberSid).fetch();
+      
+      // Update phone number to clear voiceUrl so it routes to trunk
+      // When voiceUrl is empty/null, Twilio routes to the trunk the number is assigned to
+      await client.incomingPhoneNumbers(phoneNumberSid).update({
+        voiceUrl: '', // Clear webhook URL - this makes it route to trunk
+        voiceMethod: 'POST',
+      });
+      
+      console.log('Phone number voice configuration updated successfully');
+      console.log('Phone number will now route calls to the SIP trunk');
+      return { success: true };
+    } catch (error: any) {
+      console.error('Failed to configure phone number voice:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to configure phone number voice settings' 
+      };
+    }
+  }
+
+  /**
+   * Complete SIP trunk setup (create trunk + add phone number + configure voice)
    */
   async setupSIPTrunk(
     credentials: TwilioCredentials,
@@ -308,6 +347,22 @@ export class TwilioService {
         return { success: false, error: addResult.error };
       }
       console.log('Step 3: Success - Phone number added to trunk');
+      
+      // 4. Configure phone number voice settings to use trunk (CRITICAL STEP)
+      console.log('Step 4: Configuring phone number voice settings...');
+      const voiceResult = await this.configurePhoneNumberVoice(
+        credentials,
+        sidResult.sid
+      );
+      
+      if (!voiceResult.success) {
+        console.error('Failed at Step 4:', voiceResult.error);
+        // Rollback: delete the trunk
+        await this.deleteSIPTrunk(credentials, trunkResult.trunkSid);
+        return { success: false, error: voiceResult.error || 'Failed to configure phone number voice settings' };
+      }
+      console.log('Step 4: Success - Phone number voice configured');
+      
       console.log('=== SIP Trunk Setup Complete ===');
       console.log('Returning trunk_sid:', trunkResult.trunkSid);
       

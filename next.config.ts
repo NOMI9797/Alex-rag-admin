@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   
   // Add empty turbopack config to silence the warning
   turbopack: {},
+  
+  // Note: instrumentation.ts is automatically detected by Next.js
+  // No need to enable it in config
 };
 
 export default nextConfig;

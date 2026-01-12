@@ -6,7 +6,7 @@ import { SidebarInset } from "@/components/ui/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Phone, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Plus, Phone, Trash2, Loader2, AlertCircle, Eraser } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ConnectionMethodDialog from "@/components/ConnectionMethodDialog";
 import AddPhoneNumberDialog from "@/components/AddPhoneNumberDialog";
@@ -30,6 +30,7 @@ export default function PhoneNumbersPage() {
   const [showMethodSelection, setShowMethodSelection] = useState(false);
   const [showAuthTokenDialog, setShowAuthTokenDialog] = useState(false);
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [cleaningUp, setCleaningUp] = useState(false);
 
   const fetchPhoneNumbers = async () => {
     try {
@@ -78,6 +79,39 @@ export default function PhoneNumbersPage() {
     }
   };
 
+  const handleCleanup = async () => {
+    if (!confirm('This will delete all orphaned dispatch rules, inbound trunks, and old rooms. Continue?')) {
+      return;
+    }
+
+    try {
+      setCleaningUp(true);
+      const response = await fetch('/api/livekit/cleanup-all', {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        const total = 
+          data.results.dispatchRules.deleted + 
+          data.results.inboundTrunks.deleted + 
+          data.results.rooms.deleted;
+        
+        alert(`Cleanup completed!\n\nDeleted:\n- ${data.results.dispatchRules.deleted} dispatch rules\n- ${data.results.inboundTrunks.deleted} inbound trunks\n- ${data.results.rooms.deleted} rooms`);
+        
+        // Refresh list
+        fetchPhoneNumbers();
+      } else {
+        alert(data.error || 'Failed to cleanup resources');
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to cleanup resources');
+    } finally {
+      setCleaningUp(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any; label: string }> = {
       pending: { variant: 'secondary', label: 'Pending' },
@@ -102,10 +136,25 @@ export default function PhoneNumbersPage() {
               Connect and manage your Twilio phone numbers
             </p>
           </div>
-          <Button onClick={() => setShowMethodSelection(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Phone Number
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleCleanup} 
+              variant="outline" 
+              className="gap-2"
+              disabled={cleaningUp}
+            >
+              {cleaningUp ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Eraser className="h-4 w-4" />
+              )}
+              {cleaningUp ? 'Cleaning...' : 'Cleanup Resources'}
+            </Button>
+            <Button onClick={() => setShowMethodSelection(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Phone Number
+            </Button>
+          </div>
         </div>
 
         {error && (

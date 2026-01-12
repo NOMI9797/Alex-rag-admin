@@ -128,11 +128,10 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('=== Creating LiveKit Dispatch Rule ===');
-    console.log('Trunk SID:', trunkResult.trunk_sid);
+    console.log('=== Creating LiveKit Inbound Trunk ===');
     console.log('Phone Number:', phone_number);
     
-    // Create LiveKit dispatch rule using credentials from env
+    // Create LiveKit service using credentials from env
     const livekit = createLiveKitService({
       apiKey: livekit_api_key,
       apiSecret: livekit_api_secret,
@@ -140,16 +139,102 @@ export async function POST(request: NextRequest) {
       sipUri: livekit_sip_uri,
     });
 
+    // Temporary IDs for metadata
+    const phoneNumberId = existingPhoneNumber?._id?.toString() || 'temp-' + Date.now();
+    const customerId = existingPhoneNumber?._id?.toString() || 'temp-customer-' + Date.now();
+    
+    // Check if LiveKit Inbound Trunk already exists for this phone number
     const sanitizedPhone = sanitizePhoneNumber(phone_number);
+    const inboundTrunkName = `inbound-${sanitizedPhone}`;
+    
+    console.log('Checking for existing LiveKit Inbound Trunk...');
+    const existingTrunkResult = await livekit.findInboundTrunkByPhoneNumber(phone_number);
+    
+    let inboundTrunkId: string;
+    
+    if (existingTrunkResult.success && existingTrunkResult.trunkId) {
+      // Delete existing trunk first
+      console.log('Found existing inbound trunk, deleting it:', existingTrunkResult.trunkId);
+      await livekit.deleteInboundTrunk(existingTrunkResult.trunkId);
+    }
+    
+    // Create new LiveKit Inbound Trunk
+    console.log('Creating LiveKit Inbound Trunk:', inboundTrunkName);
+    const inboundTrunkResult = await livekit.createInboundTrunk(
+      inboundTrunkName,
+      phone_number,
+      {
+        org_id,
+        phone_number_id: phoneNumberId,
+      }
+    );
+
+    if (!inboundTrunkResult.success || !inboundTrunkResult.trunkId) {
+      // Rollback: delete Twilio trunk if LiveKit inbound trunk creation fails
+      const { TwilioService } = await import('@/lib/twilio-service');
+      const twilioService = new TwilioService();
+      await twilioService.deleteSIPTrunk(
+        { 
+          accountSid: twilio_account_sid, 
+          authToken: twilio_api_secret,
+          apiKey: twilio_api_key,
+          apiSecret: twilio_api_secret,
+        } as any,
+        trunkResult.trunk_sid
+      );
+      
+      return NextResponse.json({
+        success: false,
+        error: inboundTrunkResult.error || 'Failed to create LiveKit Inbound Trunk',
+      }, { status: 400 });
+    }
+    
+    inboundTrunkId = inboundTrunkResult.trunkId;
+
+    console.log('=== Checking for existing dispatch rules ===');
+    // Delete any existing dispatch rules for this phone number to prevent duplicates
+    const { SipClient } = await import('livekit-server-sdk');
+    const sipClient = new SipClient(
+      livekit_url,
+      livekit_api_key,
+      livekit_api_secret
+    );
+    
+    // First, check database for existing dispatch rule ID
+    if (existingPhoneNumber?.livekit_dispatch_rule_id) {
+      console.log('Found dispatch rule ID in database:', existingPhoneNumber.livekit_dispatch_rule_id);
+      try {
+        await sipClient.deleteSipDispatchRule(existingPhoneNumber.livekit_dispatch_rule_id);
+        console.log('✅ Deleted dispatch rule from database:', existingPhoneNumber.livekit_dispatch_rule_id);
+      } catch (error) {
+        console.error('⚠️ Failed to delete dispatch rule from database (may already be deleted):', error);
+      }
+    }
+    
+    // Then, scan ALL rules and delete any for this phone number/org (cleanup orphaned rules)
+    const allRules = await sipClient.listSipDispatchRule();
+    for (const rule of allRules) {
+      try {
+        const metadata = rule.metadata ? JSON.parse(rule.metadata) : {};
+        // Delete if it's for this phone number and org
+        if (metadata.phone_number === phone_number && metadata.org_id === org_id) {
+          console.log('Found orphaned dispatch rule, deleting:', rule.sipDispatchRuleId);
+          await sipClient.deleteSipDispatchRule(rule.sipDispatchRuleId);
+          console.log('✅ Deleted orphaned dispatch rule:', rule.sipDispatchRuleId);
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to delete dispatch rule:', rule.sipDispatchRuleId, error);
+        // Continue anyway
+      }
+    }
+    
+    console.log('=== Creating LiveKit Dispatch Rule ===');
+    console.log('Trunk SID:', trunkResult.trunk_sid);
+    console.log('LiveKit Inbound Trunk ID:', inboundTrunkId);
+    
     const ruleId = `rule-${sanitizedPhone}-${Date.now()}`;
     
     console.log('Creating dispatch rule:', ruleId);
-    console.log('Phone number:', phone_number);
-    
-    // Temporary metadata for dispatch rule creation
-    // Use existing phone number ID if updating, otherwise use temporary ID
-    const phoneNumberId = existingPhoneNumber?._id?.toString() || 'temp-' + Date.now();
-    const customerId = existingPhoneNumber?._id?.toString() || 'temp-customer-' + Date.now();
     
     const tempMetadata = {
       customer_id: customerId,
@@ -159,9 +244,14 @@ export async function POST(request: NextRequest) {
       phone_number: phone_number,
     };
     
+    // Include both Twilio Trunk ID and LiveKit Inbound Trunk ID
+    // LiveKit matches calls based on trunkIds, and may need both
     const dispatchResult = await livekit.createDispatchRule({
       ruleId,
-      trunkIds: [trunkResult.trunk_sid], // Use the created Twilio trunk SID
+        trunkIds: [
+          trunkResult.trunk_sid, // Twilio Trunk ID (TK...)
+          inboundTrunkId, // LiveKit Inbound Trunk ID (ST...)
+        ],
       inboundNumbers: [phone_number],
       metadata: tempMetadata,
     });
@@ -182,6 +272,11 @@ export async function POST(request: NextRequest) {
     if (isUpdate && existingPhoneNumber) {
       // Update existing record
       const actualPhoneNumberId = existingPhoneNumber._id!.toString();
+      // Delete old LiveKit Inbound Trunk if it exists
+      if (existingPhoneNumber.livekit_inbound_trunk_id) {
+        await livekit.deleteInboundTrunk(existingPhoneNumber.livekit_inbound_trunk_id);
+      }
+
       await updatePhoneNumber(actualPhoneNumberId, {
         twilio_account_sid: twilio_account_sid,
         twilio_auth_token: twilio_api_secret, // Store API Secret as auth token
@@ -190,6 +285,7 @@ export async function POST(request: NextRequest) {
         livekit_api_secret,
         livekit_url,
         livekit_sip_uri,
+        livekit_inbound_trunk_id: inboundTrunkId,
         livekit_dispatch_rule_id: dispatchResult.ruleId,
         status: 'active',
         error_message: undefined, // Clear any previous error
@@ -199,21 +295,8 @@ export async function POST(request: NextRequest) {
         _id: existingPhoneNumber._id,
       };
       
-      // Update dispatch rule metadata with actual phone number ID
-      const updatedMetadata = {
-        customer_id: actualPhoneNumberId,
-        org_id,
-        phone_number_id: actualPhoneNumberId,
-        org_name: 'Organization',
-        phone_number: phone_number,
-      };
-      
-      await livekit.updateDispatchRule(dispatchResult.ruleId!, {
-        ruleId: dispatchResult.ruleId!,
-        trunkIds: [trunkResult.trunk_sid],
-        inboundNumbers: [phone_number],
-        metadata: updatedMetadata,
-      });
+      // No need to update dispatch rule - it was created with correct metadata above
+      // The dispatch rule already has the correct phone_number_id in metadata
     } else {
       // Create new record
       const { createPhoneNumber } = await import('@/lib/models/phone-number');
@@ -231,26 +314,13 @@ export async function POST(request: NextRequest) {
         livekit_api_secret,
         livekit_url,
         livekit_sip_uri,
+        livekit_inbound_trunk_id: inboundTrunkId,
         livekit_dispatch_rule_id: dispatchResult.ruleId,
         status: 'active',
       });
       
-      // Update dispatch rule metadata with actual phone number ID
-      const actualPhoneNumberId = phoneNumberRecord._id!.toString();
-      const updatedMetadata = {
-        customer_id: actualPhoneNumberId,
-        org_id,
-        phone_number_id: actualPhoneNumberId,
-        org_name: 'Organization',
-        phone_number: phone_number,
-      };
-      
-      await livekit.updateDispatchRule(dispatchResult.ruleId!, {
-        ruleId: dispatchResult.ruleId!,
-        trunkIds: [trunkResult.trunk_sid],
-        inboundNumbers: [phone_number],
-        metadata: updatedMetadata,
-      });
+      // No need to update dispatch rule - it was created with correct metadata above
+      // The dispatch rule already has the correct phone_number_id in metadata
     }
 
     return NextResponse.json({

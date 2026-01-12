@@ -3,6 +3,8 @@
  */
 
 import { SipClient } from 'livekit-server-sdk';
+import { RoomConfiguration, RoomAgentDispatch } from '@livekit/protocol';
+import { sanitizePhoneNumber } from '@/lib/models/phone-number';
 
 export interface DispatchRuleMetadata {
   customer_id: string;
@@ -84,7 +86,8 @@ export class LiveKitService {
       // Reference: https://docs.livekit.io/telephony/accepting-calls/dispatch-rule/
       
       // Sanitize phone number for room name (remove +, spaces, etc.)
-      const sanitizedPhone = metadata.phone_number.replace(/[^a-zA-Z0-9_-]/g, '');
+      // Use consistent sanitization function across the codebase
+      const sanitizedPhone = sanitizePhoneNumber(metadata.phone_number);
       
       // First parameter: the rule object (SipDispatchRuleDirect)
       const rule = {
@@ -93,16 +96,40 @@ export class LiveKitService {
       };
       
       // Second parameter: options
+      // Note: inboundNumbers is not a valid parameter in LiveKit SDK
+      // LiveKit matches calls based on trunkIds only
+      
+      // Create agent dispatch configuration
+      const agentDispatch = new RoomAgentDispatch({
+        agentName: 'alex_rag_agent', // Agent name that will be dispatched
+        metadata: JSON.stringify({
+          org_id: metadata.org_id,
+          phone_number_id: metadata.phone_number_id,
+          phone_number: metadata.phone_number,
+        }),
+      });
+      
+      // Create room configuration with agent and metadata
+      // Metadata in roomConfig will be available in the room when it's created
+      const roomConfig = new RoomConfiguration({
+        agents: [agentDispatch],
+        metadata: JSON.stringify({
+          org_id: metadata.org_id,
+          phone_number_id: metadata.phone_number_id,
+          phone_number: metadata.phone_number,
+        }),
+      });
+      
       const options = {
         name: ruleId,
         trunkIds: trunkIds,
-        inboundNumbers: inboundNumbers,
         hidePhoneNumber: false,
         metadata: JSON.stringify({
           org_id: metadata.org_id,
           phone_number_id: metadata.phone_number_id,
           phone_number: metadata.phone_number,
         }),
+        roomConfig: roomConfig,
       };
       
       const dispatchRuleResult = await this.sipClient.createSipDispatchRule(rule, options);
@@ -152,6 +179,7 @@ export class LiveKitService {
     updates: Partial<CreateDispatchRuleParams>
   ): Promise<{
     success: boolean;
+    ruleId?: string;
     error?: string;
   }> {
     try {
@@ -159,7 +187,8 @@ export class LiveKitService {
       // We need to delete and recreate the rule
       await this.deleteDispatchRule(ruleId);
 
-      if (updates.metadata) {
+      // Recreate rule if we have enough information (metadata is required)
+      if (updates.metadata && updates.trunkIds && updates.inboundNumbers) {
         const createResult = await this.createDispatchRule(
           updates as CreateDispatchRuleParams
         );
@@ -196,6 +225,120 @@ export class LiveKitService {
       return {
         success: false,
         error: error.message || 'Failed to list dispatch rules',
+      };
+    }
+  }
+
+  /**
+   * Create LiveKit Inbound Trunk for accepting calls from Twilio
+   */
+  async createInboundTrunk(
+    name: string,
+    phoneNumber: string,
+    metadata?: { org_id: string; phone_number_id: string }
+  ): Promise<{
+    success: boolean;
+    trunkId?: string;
+    error?: string;
+  }> {
+    try {
+      const trunk = await this.sipClient.createSipInboundTrunk(
+        name,
+        [phoneNumber],
+        {
+          metadata: metadata ? JSON.stringify(metadata) : undefined,
+        }
+      );
+
+      console.log('Created LiveKit Inbound Trunk:', trunk.sipTrunkId);
+
+      return {
+        success: true,
+        trunkId: trunk.sipTrunkId,
+      };
+    } catch (error: any) {
+      console.error('Failed to create LiveKit Inbound Trunk:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to create inbound trunk',
+      };
+    }
+  }
+
+  /**
+   * List all LiveKit Inbound Trunks
+   */
+  async listInboundTrunks(): Promise<{
+    success: boolean;
+    trunks?: any[];
+    error?: string;
+  }> {
+    try {
+      const trunks = await this.sipClient.listSipInboundTrunk();
+      return {
+        success: true,
+        trunks: trunks,
+      };
+    } catch (error: any) {
+      console.error('Failed to list LiveKit Inbound Trunks:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to list inbound trunks',
+      };
+    }
+  }
+
+  /**
+   * Find LiveKit Inbound Trunk by phone number
+   */
+  async findInboundTrunkByPhoneNumber(phoneNumber: string): Promise<{
+    success: boolean;
+    trunkId?: string;
+    error?: string;
+  }> {
+    try {
+      const listResult = await this.listInboundTrunks();
+      if (!listResult.success || !listResult.trunks) {
+        return { success: false, error: listResult.error };
+      }
+
+      const trunk = listResult.trunks.find((t: any) => 
+        t.numbers && t.numbers.includes(phoneNumber)
+      );
+
+      if (trunk) {
+        return {
+          success: true,
+          trunkId: trunk.sipTrunkId,
+        };
+      }
+
+      return { success: false, error: 'Inbound trunk not found' };
+    } catch (error: any) {
+      console.error('Failed to find LiveKit Inbound Trunk:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to find inbound trunk',
+      };
+    }
+  }
+
+  /**
+   * Delete LiveKit Inbound Trunk
+   */
+  async deleteInboundTrunk(trunkId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      // Use deleteSipTrunk for both inbound and outbound trunks
+      await this.sipClient.deleteSipTrunk(trunkId);
+      return { success: true };
+    } catch (error: any) {
+      console.error('Failed to delete LiveKit Inbound Trunk:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to delete inbound trunk',
       };
     }
   }

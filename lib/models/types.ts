@@ -101,3 +101,41 @@ export interface Subscription {
   updated_at: Date;
 }
 
+// SMS Templates (Configuration - stored in Admin, read by Agent)
+export interface SmsTemplate {
+  _id?: ObjectId;
+  template_id: string; // Unique: "order_confirmed", "appointment_scheduled"
+  org_id: string;
+  template_name: string; // "Order Confirmation", "Appointment Reminder"
+  message_body: string; // "Hi {customer_name}, your order #{order_id} is confirmed. Link: {booking_link}"
+  trigger_condition?: string; // Optional: "order_confirmed", "no_booking", etc.
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+}// SMS Messages (Logs - written by Agent, read by Admin)
+export interface SmsMessage {
+  _id?: ObjectId;
+  org_id: string;
+  conversation_id?: string; // Optional for now (will link to 2-way conversations later)
+  from_number: string; // Business number (E.164: "+15034448659")
+  to_number: string; // Customer number (E.164: "+1234567890")
+  message_body: string; // Actual text sent
+  direction: 'inbound' | 'outbound';
+  status: 'queued' | 'sent' | 'delivered' | 'failed';
+  sent_at: Date;
+  delivered_at?: Date;
+  related_call_id?: string; // Twilio Call SID (CA...) - links to CallLog
+  template_id?: string; // Which template was used (if applicable)
+  created_at: Date;
+}// SMS Conversations (For future 2-way communication)
+export interface SmsConversation {
+  _id?: ObjectId;
+  org_id: string;
+  phone_number: string; // Customer's phone number
+  related_call_id?: string; // Twilio Call SID if triggered from call
+  status: 'active' | 'closed' | 'archived';
+  started_at: Date;
+  last_message_at: Date;
+  created_at: Date;
+  updated_at: Date;
+}

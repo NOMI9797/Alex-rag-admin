@@ -12,7 +12,7 @@ import {
   SidebarGroupLabel,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { Database, Home, HelpCircle, Send, Phone, FileText, Bot, MessageSquare } from "lucide-react";
+import { Database, Home, HelpCircle, Send, Phone, FileText, Bot, MessageSquare, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SidebarNavHeader } from "./sidebar-nav-header";
@@ -46,6 +46,11 @@ const navMenu = [
         title: "SMS",
         icon: MessageSquare,
         link: "/sms",
+      },
+      {
+        title: "Settings",
+        icon: Settings,
+        link: "/settings",
       },
     ],
   },

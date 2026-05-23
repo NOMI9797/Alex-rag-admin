@@ -127,7 +127,17 @@ export interface SmsMessage {
   related_call_id?: string; // Twilio Call SID (CA...) - links to CallLog
   template_id?: string; // Which template was used (if applicable)
   created_at: Date;
-}// SMS Conversations (For future 2-way communication)
+}
+
+// Agent Settings (operator phone for outbound/transfer calls)
+export interface AgentSettings {
+  _id?: ObjectId;
+  org_id: string;
+  operator_phone: string; // E.164 format: "+15034448659"
+  updated_at: Date;
+}
+
+// SMS Conversations (For future 2-way communication)
 export interface SmsConversation {
   _id?: ObjectId;
   org_id: string;

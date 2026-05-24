@@ -12,7 +12,7 @@ import {
   SidebarGroupLabel,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { Database, Home, HelpCircle, Send, Phone, FileText, Bot, MessageSquare, Settings } from "lucide-react";
+import { Home, HelpCircle, Send, Bot, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SidebarNavHeader } from "./sidebar-nav-header";
@@ -28,24 +28,9 @@ const navMenu = [
         link: "/",
       },
       {
-        title: "Phone Numbers",
-        icon: Phone,
-        link: "/phone-numbers",
-      },
-      {
-        title: "Knowledge Base",
-        icon: Database,
-        link: "/knowledge-base-new",
-      },
-      {
         title: "Agent Instructions",
         icon: Bot,
         link: "/knowledge-base",
-      },
-      {
-        title: "SMS",
-        icon: MessageSquare,
-        link: "/sms",
       },
       {
         title: "Settings",

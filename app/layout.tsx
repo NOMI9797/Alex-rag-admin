@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/layout/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
+import { SessionProvider } from "@/components/providers/session-provider";
 
 export const metadata: Metadata = {
-  title: "AI Agent Admin Dashboard",
-  description: "Admin dashboard for managing AI voice agent",
+  title: "Alex RAG Admin",
+  description: "AI Voice Agent Management Platform",
 };
 
 export default function RootLayout({
@@ -17,19 +16,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
+        <SessionProvider>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <SidebarProvider>
-            <AppSidebar />
-            <main className="w-full">
               {children}
-            </main>
-          </SidebarProvider>
         </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   );

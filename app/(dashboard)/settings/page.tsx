@@ -8,19 +8,52 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Save, Phone, CheckCircle2, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Loader2, Save, Phone, CheckCircle2, AlertCircle, Bell, MessageCircle, Mail, Check } from "lucide-react";
+
+type NotificationChannel = 'telegram' | 'email' | 'both';
 
 interface Message {
   type: 'success' | 'error';
   text: string;
 }
 
+const CHANNEL_OPTIONS: {
+  value: NotificationChannel;
+  label: string;
+  description: string;
+  icon: typeof MessageCircle;
+}[] = [
+  {
+    value: 'both',
+    label: 'Both Telegram & Email',
+    description: 'Operator gets notified on both channels (recommended).',
+    icon: Bell,
+  },
+  {
+    value: 'telegram',
+    label: 'Telegram only',
+    description: 'Operator alerts go to Telegram. Email is skipped.',
+    icon: MessageCircle,
+  },
+  {
+    value: 'email',
+    label: 'Email only',
+    description: 'Operator alerts go to email. Telegram is skipped.',
+    icon: Mail,
+  },
+];
+
 export default function SettingsPage() {
   const [operatorPhone, setOperatorPhone] = useState('');
   const [savedPhone, setSavedPhone] = useState('');
+  const [channels, setChannels] = useState<NotificationChannel>('both');
+  const [savedChannels, setSavedChannels] = useState<NotificationChannel>('both');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingChannels, setSavingChannels] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
+  const [channelMessage, setChannelMessage] = useState<Message | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -31,12 +64,18 @@ export default function SettingsPage() {
       setLoading(true);
       const res = await fetch('/api/agent-settings');
       const data = await res.json();
-      if (data.success && data.operator_phone) {
-        setOperatorPhone(data.operator_phone);
-        setSavedPhone(data.operator_phone);
+      if (data.success) {
+        if (data.operator_phone) {
+          setOperatorPhone(data.operator_phone);
+          setSavedPhone(data.operator_phone);
+        }
+        if (data.notification_channels) {
+          setChannels(data.notification_channels);
+          setSavedChannels(data.notification_channels);
+        }
       }
     } catch {
-      // leave fields empty — user can set for the first time
+      // leave fields at defaults — user can set for the first time
     } finally {
       setLoading(false);
     }
@@ -65,7 +104,31 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveChannels = async () => {
+    setChannelMessage(null);
+    setSavingChannels(true);
+    try {
+      const res = await fetch('/api/agent-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_channels: channels }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSavedChannels(data.notification_channels);
+        setChannelMessage({ type: 'success', text: 'Notification preference saved. Takes effect on the next call.' });
+      } else {
+        setChannelMessage({ type: 'error', text: data.error || 'Failed to save' });
+      }
+    } catch {
+      setChannelMessage({ type: 'error', text: 'Network error — please try again.' });
+    } finally {
+      setSavingChannels(false);
+    }
+  };
+
   const hasChanges = operatorPhone.trim() !== savedPhone;
+  const hasChannelChanges = channels !== savedChannels;
 
   return (
     <SidebarInset>
@@ -132,6 +195,83 @@ export default function SettingsPage() {
                     <>
                       <Save className="mr-2 h-4 w-4" />
                       Save
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="max-w-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              Operator Notifications
+            </CardTitle>
+            <CardDescription>
+              Choose how the agent notifies you about operator alerts (transfers, missed calls, etc.).
+              Customer SMS is unaffected.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading…
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2" role="radiogroup" aria-label="Notification channels">
+                  {CHANNEL_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    const selected = channels === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => {
+                          setChannels(opt.value);
+                          setChannelMessage(null);
+                        }}
+                        className={cn(
+                          "flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors",
+                          "hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          selected ? "border-primary bg-accent/40" : "border-border"
+                        )}
+                      >
+                        <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", selected ? "text-primary" : "text-muted-foreground")} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium">{opt.label}</div>
+                          <div className="text-xs text-muted-foreground">{opt.description}</div>
+                        </div>
+                        {selected && <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {channelMessage && (
+                  <Alert variant={channelMessage.type === 'error' ? 'destructive' : 'default'}>
+                    {channelMessage.type === 'success'
+                      ? <CheckCircle2 className="h-4 w-4" />
+                      : <AlertCircle className="h-4 w-4" />}
+                    <AlertDescription>{channelMessage.text}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button onClick={handleSaveChannels} disabled={savingChannels || !hasChannelChanges}>
+                  {savingChannels ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save preference
                     </>
                   )}
                 </Button>

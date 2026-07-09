@@ -129,11 +129,16 @@ export interface SmsMessage {
   created_at: Date;
 }
 
+// Which operator notification channels are active.
+// Must match exactly what the agent (sms_service.py) reads: "telegram" | "email" | "both".
+export type NotificationChannel = 'telegram' | 'email' | 'both';
+
 // Agent Settings (operator phone for outbound/transfer calls)
 export interface AgentSettings {
   _id?: ObjectId;
   org_id: string;
   operator_phone: string; // E.164 format: "+15034448659"
+  notification_channels?: NotificationChannel; // default "both" when missing
   updated_at: Date;
 }
 

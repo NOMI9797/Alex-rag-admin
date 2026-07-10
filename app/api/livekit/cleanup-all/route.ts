@@ -102,7 +102,7 @@ export async function DELETE(request: NextRequest) {
       // 1. Belong to this org
       // 2. Have 0 participants (call ended)
       // 3. Are older than 1 hour
-      const roomAge = room.creationTime ? Date.now() - (room.creationTime * 1000) : 0;
+      const roomAge = room.creationTime ? Date.now() - (Number(room.creationTime) * 1000) : 0;
       
       if (belongsToOrg && room.numParticipants === 0 && roomAge > (60 * 60 * 1000)) {
         try {

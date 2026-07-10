@@ -122,8 +122,8 @@ export const authOptions: NextAuthOptions = {
       // Initial sign in
       if (user) {
         token.id = user.id;
-        token.org_id = (user as any).org_id;
-        token.role = (user as any).role;
+        token.org_id = user.org_id;
+        token.role = user.role;
       }
 
       return token;
@@ -132,9 +132,9 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       // Add custom fields to session
       if (session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).org_id = token.org_id;
-        (session.user as any).role = token.role;
+        session.user.id = token.id;
+        session.user.org_id = token.org_id;
+        session.user.role = token.role;
       }
 
       return session;

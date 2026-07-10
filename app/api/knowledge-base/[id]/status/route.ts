@@ -9,10 +9,11 @@ import { getKnowledgeBaseById } from '@/lib/models/knowledge-base';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { id } = resolvedParams;
 
     const org_id = await getCurrentOrgId();
 

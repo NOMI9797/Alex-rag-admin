@@ -47,7 +47,7 @@ export async function GET() {
       return {
         ruleId: rule.sipDispatchRuleId,
         name: rule.name,
-        roomName: rule.rule?.dispatchRuleDirect?.roomName,
+        roomName: rule.rule?.rule?.case === 'dispatchRuleDirect' ? rule.rule.rule.value.roomName : undefined,
         trunkIds: rule.trunkIds || [],
         metadata: metadata,
         belongsToOrg,

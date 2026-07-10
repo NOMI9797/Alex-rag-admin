@@ -18,6 +18,9 @@ const options = {
   retryReads: true,
   // Handle DNS resolution issues
   directConnection: false, // Use SRV records (mongodb+srv)
+  // Force IPv4 to avoid TLS handshake failures on serverless platforms
+  // (e.g. Vercel) with broken IPv6 routing to Atlas
+  family: 4,
 };
 
 let client: MongoClient;
